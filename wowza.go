@@ -10,11 +10,12 @@ import (
 )
 
 var (
-	serviceName    = flag.String("service", "", "Consul service name")
-	datacenterName = flag.String("dc", "", "Consul datacenter")
-	tagOpts        = flag.String("tag", "", "Tag (key=value)")
-	tagActionOpts  = flag.String("tag-action", "create", "[create|delete]")
-	listOpts       = flag.Bool("list", false, "List services")
+	serviceName         = flag.String("service", "", "Consul service name")
+	datacenterName      = flag.String("dc", "", "Consul datacenter")
+	tagOpts             = flag.String("tag", "", "Tag (key=value)")
+	addTagActionOpts    = flag.Bool("add-tag", false, "Add tag")
+	deleteTagActionOpts = flag.Bool("delete-tag", false, "Delete tag")
+	listActionOpts      = flag.Bool("list", false, "List services")
 )
 
 // Tag for a service
@@ -109,6 +110,10 @@ func searchServiceWithoutTag(c []*api.CatalogService, unexpectedTag Tag) (api.Ca
 func main() {
 
 	flag.Parse()
+	var tag Tag
+	if *tagOpts != "" {
+		tag.deconstructTag(*tagOpts)
+	}
 
 	client, err := api.NewClient(api.DefaultConfig())
 	if err != nil {
@@ -125,8 +130,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *listOpts {
+	if *listActionOpts {
 		for _, s := range catalogServices {
+			cs := CatalogService{Dc: *datacenterName, Cs: s}
+			if *tagOpts != "" && !cs.hasTag(tag) {
+				continue
+			}
 			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s\n",
 				s.ServiceName,
 				s.Node,
@@ -135,12 +144,7 @@ func main() {
 				s.ServiceTags)
 		}
 		os.Exit(0)
-	}
-
-	var tag Tag
-	tag.deconstructTag(*tagOpts)
-	switch *tagActionOpts {
-	case "create":
+	} else if *addTagActionOpts {
 		service, err := searchServiceWithoutTag(catalogServices, tag)
 		if err != nil {
 			fmt.Println(err)
@@ -150,13 +154,12 @@ func main() {
 		err = cs.serviceAddTag(client, &service, tag)
 		if err != nil {
 		}
-	case "delete":
+	} else if *deleteTagActionOpts {
 		for _, service := range catalogServices {
 			cs := CatalogService{Dc: *datacenterName, Cs: service}
 			cs.serviceDeleteTag(client, service, tag)
 		}
-
+	} else {
+		flag.Usage()
 	}
-	// search catalog for a service without a specific key=value tag
-
 }
