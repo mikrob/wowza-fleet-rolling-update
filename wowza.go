@@ -9,6 +9,14 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
+var (
+	serviceName    = flag.String("service", "", "Consul service name")
+	datacenterName = flag.String("dc", "", "Consul datacenter")
+	tagOpts        = flag.String("tag", "", "Tag (key=value)")
+	tagActionOpts  = flag.String("tag-action", "create", "[create|delete]")
+	listOpts       = flag.Bool("list", false, "List services")
+)
+
 // Tag for a service
 type Tag struct {
 	Key   string
@@ -32,30 +40,66 @@ func (t *Tag) deconstructTag(tag string) {
 
 // CatalogService extends api.CatalogService
 type CatalogService struct {
-	cs *api.CatalogService
+	Cs *api.CatalogService
+	Dc string
 }
 
-func hasTag(tags []string, tag string) bool {
-	for _, t := range tags {
-		if t == tag {
+func (cs *CatalogService) hasTag(tag Tag) bool {
+	for _, t := range cs.Cs.ServiceTags {
+		if t == tag.buildTag() {
 			return true
 		}
 	}
 	return false
 }
 
-func (cs *CatalogService) overrideTagService(c *api.Client, s *api.CatalogService, tag Tag) error {
-	if !hasTag(s.ServiceTags, tag.buildTag()) {
-		s.ServiceTags = append(s.ServiceTags, tag.buildTag())
+func (cs *CatalogService) serviceRegister(c *api.Client) {
+	reg := api.CatalogRegistration{
+		Node:       cs.Cs.Node,
+		Address:    cs.Cs.Address,
+		Datacenter: cs.Dc,
+		Service: &api.AgentService{
+			ID:                cs.Cs.ServiceID,
+			Service:           cs.Cs.ServiceName,
+			Tags:              cs.Cs.ServiceTags,
+			Port:              cs.Cs.ServicePort,
+			Address:           cs.Cs.ServiceAddress,
+			EnableTagOverride: true,
+		},
 	}
+	c.Catalog().Register(&reg, nil)
+	fmt.Printf("%s service for node %s registered with tags %s\n", cs.Cs.ServiceName, cs.Cs.Node, cs.Cs.ServiceTags)
+}
+
+func (cs *CatalogService) serviceAddTag(c *api.Client, s *api.CatalogService, tag Tag) error {
+	if !cs.hasTag(tag) {
+		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, tag.buildTag())
+		cs.serviceRegister(c)
+	}
+	return nil
+}
+
+func (cs *CatalogService) serviceDeleteTag(c *api.Client, s *api.CatalogService, tag Tag) error {
+	if !cs.hasTag(tag) {
+		return nil
+	}
+	var tags []string
+	for _, t := range cs.Cs.ServiceTags {
+		if t != tag.buildTag() {
+			tags = append(tags, t)
+		}
+	}
+	cs.Cs.ServiceTags = tags
+	cs.serviceRegister(c)
 
 	return nil
 }
 
-func searchService(c []*api.CatalogService, unexpectedTag Tag) (api.CatalogService, error) {
+func searchServiceWithoutTag(c []*api.CatalogService, unexpectedTag Tag) (api.CatalogService, error) {
 	var ret api.CatalogService
 	for _, s := range c {
-		if !hasTag(s.ServiceTags, unexpectedTag.buildTag()) {
+		cs := CatalogService{Cs: s}
+		if !cs.hasTag(unexpectedTag) {
 			return *s, nil
 		}
 	}
@@ -63,13 +107,8 @@ func searchService(c []*api.CatalogService, unexpectedTag Tag) (api.CatalogServi
 }
 
 func main() {
-	serviceName := flag.String("service", "", "Consul service name")
-	datacenterName := flag.String("dc", "", "Consul datacenter")
-	tagOpts := flag.String("tag", "", "Tag (key=value)")
-	flag.Parse()
 
-	var tag Tag
-	tag.deconstructTag(*tagOpts)
+	flag.Parse()
 
 	client, err := api.NewClient(api.DefaultConfig())
 	if err != nil {
@@ -85,19 +124,39 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	var cs CatalogService
 
-	// search a service member without tag "should_version"
-	service, err := searchService(catalogServices, tag)
-	if err != nil {
-		fmt.Println(err)
+	if *listOpts {
+		for _, s := range catalogServices {
+			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s\n",
+				s.ServiceName,
+				s.Node,
+				s.TaggedAddresses["lan"],
+				s.TaggedAddresses["wan"],
+				s.ServiceTags)
+		}
 		os.Exit(0)
 	}
-	cs.cs = &service
-	err = cs.overrideTagService(client, &service, tag)
-	if err != nil {
+
+	var tag Tag
+	tag.deconstructTag(*tagOpts)
+	switch *tagActionOpts {
+	case "create":
+		service, err := searchServiceWithoutTag(catalogServices, tag)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(0)
+		}
+		cs := CatalogService{Dc: *datacenterName, Cs: &service}
+		err = cs.serviceAddTag(client, &service, tag)
+		if err != nil {
+		}
+	case "delete":
+		for _, service := range catalogServices {
+			cs := CatalogService{Dc: *datacenterName, Cs: service}
+			cs.serviceDeleteTag(client, service, tag)
+		}
 
 	}
-	fmt.Println(service.ServiceTags)
+	// search catalog for a service without a specific key=value tag
 
 }
