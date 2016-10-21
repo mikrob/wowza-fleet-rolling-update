@@ -11,19 +11,14 @@ import (
 )
 
 func TestRetrieveMetrics(t *testing.T) {
-	client := http.DefaultClient
-
-	client.Transport = newMockRoundTripper()
-
-	resp, err := client.Get("http://ifconfig.co/all.json")
+	url := "http://this_is_a_fake_url.com/wowza"
+	wowzaMetrics, err := getMetrics(url, newMocktransport("admin", "toto"))
 	if err != nil {
 		panic(err)
 	}
-	defer resp.Body.Close()
+	t.Log("Current Connections : ")
+	t.Log(wowzaMetrics.CurrentConnections)
 
-	body, err := ioutil.ReadAll(resp.Body)
-	fmt.Println("GET http://ifconfig.co/all.json")
-	fmt.Println(string(body))
 }
 
 // Create a HTTP server to return mocked response
@@ -35,7 +30,7 @@ func newServer() *httptest.Server {
 			`{
 			"version" : "12345678910",
 	    "maxConnections": 12,
-	    "currentConnections" : 3,
+	    "currentConnections" : 42,
 			"maxIncommingStreams" : 2,
 			"wowzaFieldInvented" : "INVENTION"
 			}`)
@@ -71,7 +66,7 @@ func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		`{
 		"version" : "12345678910",
     "maxConnections": 12,
-    "currentConnections" : 3,
+    "currentConnections" : 45,
 		"maxIncommingStreams" : 2,
 		"wowzaFieldInvented" : "INVENTION"
 		}`
