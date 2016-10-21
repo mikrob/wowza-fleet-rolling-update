@@ -62,9 +62,10 @@ func (cs *CatalogService) hasTag(tag Tag) bool {
 
 func (cs *CatalogService) serviceRegister(c *api.Client) {
 	reg := api.CatalogRegistration{
-		Node:       cs.Cs.Node,
-		Address:    cs.Cs.Address,
-		Datacenter: cs.Dc,
+		Node:            cs.Cs.Node,
+		Address:         cs.Cs.Address,
+		Datacenter:      cs.Dc,
+		TaggedAddresses: cs.Cs.TaggedAddresses,
 		Service: &api.AgentService{
 			ID:                cs.Cs.ServiceID,
 			Service:           cs.Cs.ServiceName,
