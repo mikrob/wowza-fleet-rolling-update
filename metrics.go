@@ -18,10 +18,7 @@ var (
 	url = "http://coreosdev0001.botsunit.io:8087/v2/servers/_defaultServer_/status"
 )
 
-func getMetrics(url string) (WowzaMetrics, error) {
-
-	// setup a transport to handle disgest
-	transport := digest.NewTransport("admin", "admin.123")
+func getMetrics(url string, transport *digest.Transport) (WowzaMetrics, error) {
 
 	// initialize the client
 	client, err := transport.Client()
@@ -50,7 +47,9 @@ func getMetrics(url string) (WowzaMetrics, error) {
 }
 
 func fakeMain() {
-	wowzaMetrics, err := getMetrics(url)
+	// setup a transport to handle disgest
+	transport := digest.NewTransport("admin", "admin.123")
+	wowzaMetrics, err := getMetrics(url, transport)
 	if err != nil {
 		fmt.Println("Failed to retrieve metrics with err : ", err.Error())
 	}
