@@ -7,9 +7,8 @@ import (
 	"gitlab.botsunit.com/infra/wowza-rolling-update/digest"
 )
 
-// WowzaMetrics struct maps to the JSON automatically with the added meta data
-// We only map the needed fields
-type WowzaMetrics struct {
+// Metrics struct maps to the JSON automatically with the added meta data. We only map the needed fields
+type Metrics struct {
 	MaxConnections      int32 `json:"maxConnections"`
 	CurrentConnections  int32 `json:"currentConnections"`
 	MaxIncommingStreams int32 `json:"maxIncommingStreams"`
@@ -19,7 +18,7 @@ var (
 	url = "http://coreosdev0001.botsunit.io:8087/v2/servers/_defaultServer_/status"
 )
 
-func getMetrics(url string, transport *digest.Transport) (WowzaMetrics, error) {
+func getMetrics(url string, transport *digest.Transport) (Metrics, error) {
 
 	// initialize the client
 	client, err := transport.Client()
@@ -38,13 +37,13 @@ func getMetrics(url string, transport *digest.Transport) (WowzaMetrics, error) {
 	// body, err := ioutil.ReadAll(resp.Body)
 	// fmt.Printf("Body: %v\n", string(body))
 
-	var wowzaMetrics WowzaMetrics
-	err = json.NewDecoder(resp.Body).Decode(&wowzaMetrics)
+	var metrics Metrics
+	err = json.NewDecoder(resp.Body).Decode(&metrics)
 	if err != nil {
 		fmt.Println("Cannot parse JSON from WOWZA because : ")
 		fmt.Println(err.Error())
 	}
-	return wowzaMetrics, err
+	return metrics, err
 }
 
 func fakeMain() {

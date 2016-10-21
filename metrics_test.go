@@ -7,7 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"wowza-rolling-update/digest"
+
+	"gitlab.botsunit.com/infra/wowza-rolling-update/digest"
 )
 
 func TestRetrieveMetrics(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/consul/api"
+	"gitlab.botsunit.com/infra/wowza-rolling-update/digest"
 )
 
 var (
@@ -43,6 +44,11 @@ func (t *Tag) deconstructTag(tag string) {
 type CatalogService struct {
 	Cs *api.CatalogService
 	Dc string
+}
+
+func (cs *CatalogService) getURL() string {
+	url := fmt.Sprintf("http://%s.botsunit.io:8087/v2/servers/_defaultServer_/status", cs.Cs.Node)
+	return url
 }
 
 func (cs *CatalogService) hasTag(tag Tag) bool {
@@ -108,7 +114,7 @@ func searchServiceWithoutTag(c []*api.CatalogService, unexpectedTag Tag) (api.Ca
 }
 
 func main() {
-
+	transport := digest.NewTransport("admin", "admin.123")
 	flag.Parse()
 	var tag Tag
 	if *tagOpts != "" {
@@ -136,12 +142,15 @@ func main() {
 			if *tagOpts != "" && !cs.hasTag(tag) {
 				continue
 			}
-			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s\n",
+			currentConnections, _ := getMetrics(cs.getURL(), transport)
+			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s current_connections:%d\n",
 				s.ServiceName,
 				s.Node,
 				s.TaggedAddresses["lan"],
 				s.TaggedAddresses["wan"],
-				s.ServiceTags)
+				s.ServiceTags,
+				currentConnections.CurrentConnections,
+			)
 		}
 		os.Exit(0)
 	} else if *addTagActionOpts {
