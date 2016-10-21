@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"wowza-rolling-update/digest"
+
+	"gitlab.botsunit.com/infra/wowza-rolling-update/digest"
 )
 
 // WowzaMetrics struct maps to the JSON automatically with the added meta data
