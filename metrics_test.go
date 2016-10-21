@@ -1,41 +1,33 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"gitlab.botsunit.com/infra/wowza-rolling-update/digest"
 )
 
-func TestRetrieveMetrics(t *testing.T) {
+func TestRetrieveMetricsFillStruct(t *testing.T) {
 	url := "http://this_is_a_fake_url.com/wowza"
 	wowzaMetrics, err := getMetrics(url, newMocktransport("admin", "toto"))
 	if err != nil {
 		panic(err)
 	}
-	t.Log("Current Connections : ")
-	t.Log(wowzaMetrics.CurrentConnections)
 
-}
+	if wowzaMetrics.CurrentConnections != 45 {
+		t.Error("wowza metrics current connections is not 45")
+	}
 
-// Create a HTTP server to return mocked response
-func newServer() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w,
-			`{
-			"version" : "12345678910",
-	    "maxConnections": 12,
-	    "currentConnections" : 42,
-			"maxIncommingStreams" : 2,
-			"wowzaFieldInvented" : "INVENTION"
-			}`)
-	}))
+	if wowzaMetrics.MaxConnections != 12 {
+		t.Error("wowza metrics current connections is not 42")
+	}
+
+	if wowzaMetrics.MaxIncommingStreams != 2 {
+		t.Error("wowza metrics current connections is not 42")
+	}
+
 }
 
 type mockTransport struct{}
