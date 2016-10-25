@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"wowza-rolling-update/digest"
 	lib "wowza-rolling-update/lib"
 
@@ -20,107 +19,12 @@ var (
 	listActionOpts      = flag.Bool("list", false, "List services")
 )
 
-// Tag for a service
-type Tag struct {
-	Key   string
-	Value string
-}
-
-func split(s, sep string) (string, string) {
-	x := strings.Split(s, sep)
-	return x[0], x[1]
-}
-
-func (t Tag) buildTag() string {
-	return fmt.Sprintf("%s=%s", t.Key, t.Value)
-}
-
-func (t *Tag) deconstructTag(tag string) {
-	k, v := split(tag, "=")
-	t.Key = k
-	t.Value = v
-}
-
-// CatalogService extends api.CatalogService
-type CatalogService struct {
-	Cs *api.CatalogService
-	Dc string
-}
-
-func (cs *CatalogService) getURL() string {
-	url := fmt.Sprintf("http://%s.botsunit.io:8087/v2/servers/_defaultServer_/status", cs.Cs.Node)
-	return url
-}
-
-func (cs *CatalogService) hasTag(tag Tag) bool {
-	for _, t := range cs.Cs.ServiceTags {
-		if t == tag.buildTag() {
-			return true
-		}
-	}
-	return false
-}
-
-func (cs *CatalogService) serviceRegister(c *api.Client) {
-	reg := api.CatalogRegistration{
-		Node:            cs.Cs.Node,
-		Address:         cs.Cs.Address,
-		Datacenter:      cs.Dc,
-		TaggedAddresses: cs.Cs.TaggedAddresses,
-		Service: &api.AgentService{
-			ID:                cs.Cs.ServiceID,
-			Service:           cs.Cs.ServiceName,
-			Tags:              cs.Cs.ServiceTags,
-			Port:              cs.Cs.ServicePort,
-			Address:           cs.Cs.ServiceAddress,
-			EnableTagOverride: true,
-		},
-	}
-	c.Catalog().Register(&reg, nil)
-	fmt.Printf("%s service for node %s registered with tags %s\n", cs.Cs.ServiceName, cs.Cs.Node, cs.Cs.ServiceTags)
-}
-
-func (cs *CatalogService) serviceAddTag(c *api.Client, s *api.CatalogService, tag Tag) error {
-	if !cs.hasTag(tag) {
-		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, tag.buildTag())
-		cs.serviceRegister(c)
-	}
-	return nil
-}
-
-func (cs *CatalogService) serviceDeleteTag(c *api.Client, s *api.CatalogService, tag Tag) error {
-	if !cs.hasTag(tag) {
-		return nil
-	}
-	var tags []string
-	for _, t := range cs.Cs.ServiceTags {
-		if t != tag.buildTag() {
-			tags = append(tags, t)
-		}
-	}
-	cs.Cs.ServiceTags = tags
-	cs.serviceRegister(c)
-
-	return nil
-}
-
-func searchServiceWithoutTag(c []*api.CatalogService, unexpectedTag Tag) (api.CatalogService, error) {
-	var ret api.CatalogService
-	for _, s := range c {
-		cs := CatalogService{Cs: s}
-		if !cs.hasTag(unexpectedTag) {
-			return *s, nil
-		}
-	}
-	return ret, fmt.Errorf("Cannot found instance without tag %s", unexpectedTag)
-}
-
 func main() {
 	transport := digest.NewTransport("admin", "admin.123")
 	flag.Parse()
-	var tag Tag
+	var tag lib.Tag
 	if *tagOpts != "" {
-		tag.deconstructTag(*tagOpts)
+		tag.DeconstructTag(*tagOpts)
 	}
 
 	client, err := api.NewClient(api.DefaultConfig())
@@ -140,11 +44,11 @@ func main() {
 
 	if *listActionOpts {
 		for _, s := range catalogServices {
-			cs := CatalogService{Dc: *datacenterName, Cs: s}
-			if *tagOpts != "" && !cs.hasTag(tag) {
+			cs := lib.CatalogService{Dc: *datacenterName, Cs: s}
+			if *tagOpts != "" && !cs.HasTag(tag) {
 				continue
 			}
-			currentConnections, _ := lib.GetMetrics(cs.getURL(), transport)
+			currentConnections, _ := lib.GetMetrics(cs.GetURL(), transport)
 			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s current_connections:%d\n",
 				s.ServiceName,
 				s.Node,
@@ -156,19 +60,19 @@ func main() {
 		}
 		os.Exit(0)
 	} else if *addTagActionOpts {
-		service, err := searchServiceWithoutTag(catalogServices, tag)
+		service, err := lib.SearchServiceWithoutTag(catalogServices, tag)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(0)
 		}
-		cs := CatalogService{Dc: *datacenterName, Cs: &service}
-		err = cs.serviceAddTag(client, &service, tag)
+		cs := lib.CatalogService{Dc: *datacenterName, Cs: &service}
+		err = cs.ServiceAddTag(client, &service, tag)
 		if err != nil {
 		}
 	} else if *deleteTagActionOpts {
 		for _, service := range catalogServices {
-			cs := CatalogService{Dc: *datacenterName, Cs: service}
-			cs.serviceDeleteTag(client, service, tag)
+			cs := lib.CatalogService{Dc: *datacenterName, Cs: service}
+			cs.ServiceDeleteTag(client, service, tag)
 		}
 	} else {
 		flag.Usage()
