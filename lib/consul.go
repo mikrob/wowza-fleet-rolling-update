@@ -18,10 +18,12 @@ func split(s, sep string) (string, string) {
 	return x[0], x[1]
 }
 
-func (t Tag) buildTag() string {
+// BuildTag build a tag string from a tag struct
+func (t Tag) BuildTag() string {
 	return fmt.Sprintf("%s=%s", t.Key, t.Value)
 }
 
+//DeconstructTag allow to construct a tag from a given string containing key/value separated with =
 func (t *Tag) DeconstructTag(tag string) {
 	k, v := split(tag, "=")
 	t.Key = k
@@ -34,14 +36,16 @@ type CatalogService struct {
 	Dc string
 }
 
+// GetURL build and url from given CatalogService
 func (cs *CatalogService) GetURL() string {
 	url := fmt.Sprintf("http://%s.botsunit.io:8087/v2/servers/_defaultServer_/status", cs.Cs.Node)
 	return url
 }
 
+// HasTag check if catalog service has a given tag
 func (cs *CatalogService) HasTag(tag Tag) bool {
 	for _, t := range cs.Cs.ServiceTags {
-		if t == tag.buildTag() {
+		if t == tag.BuildTag() {
 			return true
 		}
 	}
@@ -67,21 +71,23 @@ func (cs *CatalogService) serviceRegister(c *api.Client) {
 	fmt.Printf("%s service for node %s registered with tags %s\n", cs.Cs.ServiceName, cs.Cs.Node, cs.Cs.ServiceTags)
 }
 
+//ServiceAddTag allow to add a tag on a service
 func (cs *CatalogService) ServiceAddTag(c *api.Client, s *api.CatalogService, tag Tag) error {
 	if !cs.HasTag(tag) {
-		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, tag.buildTag())
+		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, tag.BuildTag())
 		cs.serviceRegister(c)
 	}
 	return nil
 }
 
+//ServiceDeleteTag allow to delete a tag on a service
 func (cs *CatalogService) ServiceDeleteTag(c *api.Client, s *api.CatalogService, tag Tag) error {
 	if !cs.HasTag(tag) {
 		return nil
 	}
 	var tags []string
 	for _, t := range cs.Cs.ServiceTags {
-		if t != tag.buildTag() {
+		if t != tag.BuildTag() {
 			tags = append(tags, t)
 		}
 	}
@@ -91,6 +97,7 @@ func (cs *CatalogService) ServiceDeleteTag(c *api.Client, s *api.CatalogService,
 	return nil
 }
 
+//SearchServiceWithoutTag allow to search a service without a given tag, return the first that doesn't have this tag
 func SearchServiceWithoutTag(c []*api.CatalogService, unexpectedTag Tag) (api.CatalogService, error) {
 	var ret api.CatalogService
 	for _, s := range c {
