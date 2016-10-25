@@ -48,9 +48,13 @@ func TestBuildTagShouldReturnWellFormatedString(t *testing.T) {
 
 func TestBuildTagShouldNotBuildEmptyTag(t *testing.T) {
 	tag := Tag{}
-	_, err := tag.BuildTag()
+        tagStr, err := tag.BuildTag()
 	if err == nil {
 		t.Error("Should have raise an error because try to build an empty tag")
+	}
+	if tagStr != "" {
+	  t.Log("TAG STR :", tagStr)
+	  t.Error("TagStr should be empty string because empty tag")
 	}
 }
 

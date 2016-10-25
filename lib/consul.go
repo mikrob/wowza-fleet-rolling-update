@@ -26,8 +26,11 @@ func (t Tag) BuildTag() (string, error) {
 		err = errors.New("Should not build tag with empty key or value")
 		fmt.Println("Error while building tag :", err.Error())
 	}
-
-	return fmt.Sprintf("%s=%s", t.Key, t.Value), err
+        if err != nil {
+	  return "", err
+	} else {
+	  return fmt.Sprintf("%s=%s", t.Key, t.Value), err
+	}
 }
 
 //DeconstructTag allow to construct a tag from a given string containing key/value separated with =
