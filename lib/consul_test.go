@@ -84,19 +84,21 @@ func registerFakeWowzaService(serviceName string, nodeName string, ip string, cl
 	})
 }
 
-func initializeConsul(t *testing.T) *api.Client {
-	return nil
-}
-
-func TestGetUrlShouldReturnRightUrl(t *testing.T) {
+func initializeConsul(t *testing.T) (*api.Catalog, *testutil.TestServer) {
 	t.Parallel()
 	client, server := makeClient(t)
-	defer server.Stop()
+
 	registerFakeWowzaService("wowza-edge", "node1", "192.168.1.1", client, t)
 	registerFakeWowzaService("wowza-edge", "node2", "192.168.1.2", client, t)
 	registerFakeWowzaService("wowza-edge", "node3", "192.168.1.3", client, t)
 	registerFakeWowzaService("wowza-edge", "node4", "192.168.1.4", client, t)
 	catalog := client.Catalog()
+	return catalog, server
+}
+
+func TestGetUrlShouldReturnRightUrl(t *testing.T) {
+	catalog, server := initializeConsul(t)
+	defer server.Stop()
 	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
 	if err != nil {
 		t.Error("Error while retriving services")
