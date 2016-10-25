@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -19,8 +20,14 @@ func split(s, sep string) (string, string) {
 }
 
 // BuildTag build a tag string from a tag struct
-func (t Tag) BuildTag() string {
-	return fmt.Sprintf("%s=%s", t.Key, t.Value)
+func (t Tag) BuildTag() (string, error) {
+	var err error
+	if t.Key == "" || t.Value == "" {
+		err = errors.New("Should not build tag with empty key or value")
+		fmt.Println("Error while building tag :", err.Error())
+	}
+
+	return fmt.Sprintf("%s=%s", t.Key, t.Value), err
 }
 
 //DeconstructTag allow to construct a tag from a given string containing key/value separated with =
@@ -45,7 +52,8 @@ func (cs *CatalogService) GetURL() string {
 // HasTag check if catalog service has a given tag
 func (cs *CatalogService) HasTag(tag Tag) bool {
 	for _, t := range cs.Cs.ServiceTags {
-		if t == tag.BuildTag() {
+		newtag, _ := tag.BuildTag()
+		if t == newtag {
 			return true
 		}
 	}
@@ -75,7 +83,12 @@ func (cs *CatalogService) serviceRegister(c *api.Client) {
 func (cs *CatalogService) ServiceAddTag(c *api.Client, s *api.CatalogService, tag Tag) error {
 	if !cs.HasTag(tag) {
 		fmt.Println("ADD TAG : ", tag.Key)
-		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, tag.BuildTag())
+		newTag, err := tag.BuildTag()
+		if err != nil {
+			fmt.Println("Error while building tag to add to service : ", err.Error())
+			panic(err.Error())
+		}
+		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, newTag)
 		cs.serviceRegister(c)
 	}
 	return nil
@@ -88,7 +101,12 @@ func (cs *CatalogService) ServiceDeleteTag(c *api.Client, s *api.CatalogService,
 	}
 	var tags []string
 	for _, t := range cs.Cs.ServiceTags {
-		if t != tag.BuildTag() {
+		newtag, err := tag.BuildTag()
+		if err != nil {
+			fmt.Println("Error while building tag to add to service : ", err.Error())
+			panic(err.Error())
+		}
+		if t != newtag {
 			tags = append(tags, t)
 		}
 	}

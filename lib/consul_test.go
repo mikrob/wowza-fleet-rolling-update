@@ -40,9 +40,17 @@ func makeClientWithConfig(t *testing.T, cb1 configCallback, cb2 testutil.ServerC
 
 func TestBuildTagShouldReturnWellFormatedString(t *testing.T) {
 	tag := Tag{Key: "toto", Value: "titi"}
-	result := tag.BuildTag()
+	result, _ := tag.BuildTag()
 	if result != "toto=titi" {
 		t.Error("Build Tag shoudl return toto=titi and it returned", result)
+	}
+}
+
+func TestBuildTagShouldNotBuildEmptyTag(t *testing.T) {
+	tag := Tag{}
+	_, err := tag.BuildTag()
+	if err == nil {
+		t.Error("Should have raise an error because try to build an empty tag")
 	}
 }
 
@@ -111,21 +119,6 @@ func TestGetUrlShouldReturnRightUrl(t *testing.T) {
 			t.Error("Get URL return is malformated")
 		}
 	}
-
-	// testutil.WaitForResult(func() (bool, error) {
-	// 	datacenters, err := catalog.Datacenters()
-	// 	if err != nil {
-	// 		return false, err
-	// 	}
-	//
-	// 	if len(datacenters) == 0 {
-	// 		return false, fmt.Errorf("Bad: %v", datacenters)
-	// 	}
-	// 	t.Log(datacenters)
-	// 	return true, nil
-	// }, func(err error) {
-	// 	t.Fatalf("err: %s", err)
-	// })
 }
 
 func TestHasTagReturnTrueIfServiceHasTag(t *testing.T) {
