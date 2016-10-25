@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"wowza-rolling-update/digest"
+	lib "wowza-rolling-update/lib"
 
 	"github.com/hashicorp/consul/api"
-	"gitlab.botsunit.com/infra/wowza-rolling-update/digest"
 )
 
 var (
@@ -143,7 +144,7 @@ func main() {
 			if *tagOpts != "" && !cs.hasTag(tag) {
 				continue
 			}
-			currentConnections, _ := getMetrics(cs.getURL(), transport)
+			currentConnections, _ := lib.GetMetrics(cs.getURL(), transport)
 			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s current_connections:%d\n",
 				s.ServiceName,
 				s.Node,
