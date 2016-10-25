@@ -74,6 +74,7 @@ func (cs *CatalogService) serviceRegister(c *api.Client) {
 //ServiceAddTag allow to add a tag on a service
 func (cs *CatalogService) ServiceAddTag(c *api.Client, s *api.CatalogService, tag Tag) error {
 	if !cs.HasTag(tag) {
+		fmt.Println("ADD TAG : ", tag.Key)
 		cs.Cs.ServiceTags = append(cs.Cs.ServiceTags, tag.BuildTag())
 		cs.serviceRegister(c)
 	}

@@ -64,7 +64,7 @@ func registerFakeWowzaService(serviceName string, nodeName string, ip string, cl
 	service := &api.AgentService{
 		ID:      serviceName,
 		Service: serviceName,
-		Tags:    []string{"master", "v1"},
+		Tags:    []string{"master=toto", "v1"},
 		Port:    1935,
 	}
 	reg := &api.CatalogRegistration{
@@ -85,7 +85,7 @@ func registerFakeWowzaService(serviceName string, nodeName string, ip string, cl
 	})
 }
 
-func initializeConsul(t *testing.T) (*api.Catalog, *testutil.TestServer) {
+func initializeConsul(t *testing.T) (*api.Catalog, *testutil.TestServer, *api.Client) {
 	t.Parallel()
 	client, server := makeClient(t)
 
@@ -94,11 +94,11 @@ func initializeConsul(t *testing.T) (*api.Catalog, *testutil.TestServer) {
 	registerFakeWowzaService("wowza-edge", "node3", "192.168.1.3", client, t)
 	registerFakeWowzaService("wowza-edge", "node4", "192.168.1.4", client, t)
 	catalog := client.Catalog()
-	return catalog, server
+	return catalog, server, client
 }
 
 func TestGetUrlShouldReturnRightUrl(t *testing.T) {
-	catalog, server := initializeConsul(t)
+	catalog, server, _ := initializeConsul(t)
 	defer server.Stop()
 	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
 	if err != nil {
@@ -107,8 +107,6 @@ func TestGetUrlShouldReturnRightUrl(t *testing.T) {
 
 	for _, s := range catalogServices {
 		cs := CatalogService{Cs: s}
-		t.Log("CATALOG SERVICE :")
-		t.Logf("%+v\n", cs.Cs)
 		if cs.GetURL() != fmt.Sprintf("http://%s.botsunit.io:8087/v2/servers/_defaultServer_/status", cs.Cs.Node) {
 			t.Error("Get URL return is malformated")
 		}
@@ -128,4 +126,139 @@ func TestGetUrlShouldReturnRightUrl(t *testing.T) {
 	// }, func(err error) {
 	// 	t.Fatalf("err: %s", err)
 	// })
+}
+
+func TestHasTagReturnTrueIfServiceHasTag(t *testing.T) {
+	catalog, server, _ := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+	cs := CatalogService{Cs: catalogServices[0]}
+	tag := Tag{
+		Key:   "master",
+		Value: "toto",
+	}
+	if !cs.HasTag(tag) {
+		t.Error("Service should have tag master=toto")
+	}
+}
+
+func TestHasTagReturnFalseIfServiceHasNotTag(t *testing.T) {
+	catalog, server, _ := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+	cs := CatalogService{Cs: catalogServices[0]}
+	tag := Tag{
+		Key:   "tutu",
+		Value: "tata",
+	}
+	if cs.HasTag(tag) {
+		t.Error("Service should NOT have tag tutu=tata")
+	}
+}
+
+func TestServiceAddTag(t *testing.T) {
+	catalog, server, client := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+	cs := CatalogService{Cs: catalogServices[0]}
+	tag := Tag{
+		Key:   "maintenance",
+		Value: "true",
+	}
+	cs.ServiceAddTag(client, catalogServices[0], tag)
+
+	if !cs.HasTag(tag) {
+		t.Errorf("Service should have new added tag : key %s, value %s", tag.Key, tag.Value)
+	}
+}
+
+func TestServiceDeleteTag(t *testing.T) {
+	catalog, server, client := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+	cs := CatalogService{Cs: catalogServices[0]}
+	tag := Tag{
+		Key:   "master",
+		Value: "toto",
+	}
+	cs.ServiceDeleteTag(client, catalogServices[0], tag)
+
+	if cs.HasTag(tag) {
+		t.Errorf("Service should NOT have tag : key %s, value %s because delete has been called", tag.Key, tag.Value)
+	}
+}
+
+func TestServiceDeleteTagUnexisting(t *testing.T) {
+	catalog, server, client := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+	cs := CatalogService{Cs: catalogServices[0]}
+	tag := Tag{
+		Key:   "hibou",
+		Value: "caillou",
+	}
+	cs.ServiceDeleteTag(client, catalogServices[0], tag)
+
+	if cs.HasTag(tag) {
+		t.Errorf("Service should NOT have tag : key %s, value %s because delete has been called", tag.Key, tag.Value)
+	}
+}
+
+func TestSearchServiceWithoutTag(t *testing.T) {
+	catalog, server, _ := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+
+	tag := Tag{
+		Key:   "maintenance",
+		Value: "true",
+	}
+
+	cs, err := SearchServiceWithoutTag(catalogServices, tag)
+	if err != nil {
+		t.Error("Error while searching service with no tag maintenanance=true")
+	}
+	if cs.Node == "" {
+		t.Error("Didnt found service with tag maintenance=true")
+	}
+}
+
+func TestSearchServiceWithoutTagButAllHaveTag(t *testing.T) {
+	catalog, server, _ := initializeConsul(t)
+	defer server.Stop()
+	catalogServices, _, err := catalog.Service("wowza-edge", "", nil)
+	if err != nil {
+		t.Error("Error while retrieving services")
+	}
+
+	tag := Tag{
+		Key:   "master",
+		Value: "toto",
+	}
+
+	cs, err := SearchServiceWithoutTag(catalogServices, tag)
+	if err == nil {
+		t.Error("Should make error because all service has searched tag")
+	}
+	if cs.Node != "" {
+		t.Error("Should be empty because all services has searched tag")
+	}
 }
