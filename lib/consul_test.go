@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"testing"
 
 	api "github.com/hashicorp/consul/api"
@@ -108,6 +109,9 @@ func TestGetUrlShouldReturnRightUrl(t *testing.T) {
 		cs := CatalogService{Cs: s}
 		t.Log("CATALOG SERVICE :")
 		t.Logf("%+v\n", cs.Cs)
+		if cs.GetURL() != fmt.Sprintf("http://%s.botsunit.io:8087/v2/servers/_defaultServer_/status", cs.Cs.Node) {
+			t.Error("Get URL return is malformated")
+		}
 	}
 
 	// testutil.WaitForResult(func() (bool, error) {
