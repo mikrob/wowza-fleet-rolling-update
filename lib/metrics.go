@@ -13,10 +13,6 @@ type Metrics struct {
 	MaxIncommingStreams int32 `json:"maxIncommingStreams"`
 }
 
-var (
-	url = "http://coreosdev0001.botsunit.io:8087/v2/servers/_defaultServer_/status"
-)
-
 // GetMetrics allow to retrive wowza metrics with mock or really
 func GetMetrics(url string, transport *digest.Transport) (Metrics, error) {
 
@@ -49,7 +45,8 @@ func GetMetrics(url string, transport *digest.Transport) (Metrics, error) {
 func fakeMain() {
 	// setup a transport to handle disgest
 	transport := digest.NewTransport("admin", "admin.123")
-	wowzaMetrics, err := GetMetrics(url, transport)
+	coreOSUrl := "http://coreosdev0001.botsunit.io:8087/v2/servers/_defaultServer_/status"
+	wowzaMetrics, err := GetMetrics(coreOSUrl, transport)
 	if err != nil {
 		fmt.Println("Failed to retrieve metrics with err : ", err.Error())
 	}
