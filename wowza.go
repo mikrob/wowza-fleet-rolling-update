@@ -72,6 +72,9 @@ func main() {
 	// } else {
 	// 	flag.Usage()
 	// }
+	machineList, _ := lib.ListFleetMachines()
+	lib.PrintMachineList(machineList)
 
-	lib.ListFleetMachines()
+	unitList, _ := lib.ListFleetUnits()
+	lib.PrintUnitList(unitList)
 }
