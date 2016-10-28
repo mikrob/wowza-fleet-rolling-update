@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"wowza-rolling-update/lib"
 )
 
@@ -12,11 +14,12 @@ var (
 	addTagActionOpts    = flag.Bool("add-tag", false, "Add tag")
 	deleteTagActionOpts = flag.Bool("delete-tag", false, "Delete tag")
 	listActionOpts      = flag.Bool("list", false, "List services")
+	unit                = flag.String("unit", "", "Unit to start")
 )
 
 func main() {
 	// transport := digest.NewTransport("admin", "admin.123")
-	// flag.Parse()
+	flag.Parse()
 	// var tag lib.Tag
 	// if *tagOpts != "" {
 	// 	tag.DeconstructTag(*tagOpts)
@@ -77,4 +80,12 @@ func main() {
 
 	unitList, _ := lib.ListFleetUnits()
 	lib.PrintUnitList(unitList)
+
+	cAPI, err := lib.GetClient()
+	if err != nil {
+		fmt.Printf("Unable to initialize client: %v", err)
+		os.Exit(1)
+	}
+	units := []string{*unit}
+	lib.RunStartUnit(units, &cAPI)
 }

@@ -286,7 +286,8 @@ func createUnit(name string, uf *unit.UnitFile, cAPI *client.API) (*schema.Unit,
 	return &u, nil
 }
 
-func runStartUnit(args []string, cAPI *client.API) (exit int) {
+//RunStartUnit allow to start unit
+func RunStartUnit(args []string, cAPI *client.API) (exit int) {
 	if len(args) == 0 {
 		fmt.Println("No units given")
 		return 0

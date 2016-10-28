@@ -23,7 +23,7 @@ var (
 )
 
 // getClient initializes a client of fleet based on CLI flags
-func getClient() (client.API, error) {
+func GetClient() (client.API, error) {
 	clientDriver, err := getHTTPClient()
 
 	return clientDriver, err
@@ -64,7 +64,7 @@ func getHTTPClient() (client.API, error) {
 
 // ListFleetMachines allow to list machines with fleet
 func ListFleetMachines() ([]machine.MachineState, error) {
-	cAPI, err := getClient()
+	cAPI, err := GetClient()
 	if err != nil {
 		fmt.Printf("Unable to initialize client: %v", err)
 		os.Exit(1)
@@ -87,7 +87,7 @@ func PrintMachineList(list []machine.MachineState) {
 
 // ListFleetUnits allow to list deployed fleetunits
 func ListFleetUnits() ([]*schema.Unit, error) {
-	cAPI, err := getClient()
+	cAPI, err := GetClient()
 	if err != nil {
 		fmt.Printf("Unable to initialize client: %v", err)
 		os.Exit(1)
@@ -118,7 +118,7 @@ func PrintUnitList(list []*schema.Unit) {
 
 // CreateAndStartUnit allow to create and start a fleet unit
 func CreateAndStartUnit(unit *schema.Unit) {
-	cAPI, err := getClient()
+	cAPI, err := GetClient()
 	if err != nil {
 		fmt.Printf("Unable to initialize client: %v", err)
 		os.Exit(1)
