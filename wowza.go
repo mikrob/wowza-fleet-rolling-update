@@ -87,5 +87,6 @@ func main() {
 		os.Exit(1)
 	}
 	units := []string{*unit}
-	lib.RunStartUnit(units, &cAPI)
+	//lib.RunStartUnit(units, &cAPI)
+	lib.RunDestroyUnit(units, &cAPI)
 }

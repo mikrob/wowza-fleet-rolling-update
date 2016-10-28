@@ -25,7 +25,155 @@ const (
 
 var (
 	machineStates map[string]*machine.MachineState
+	// flags used by multiple commands
+	sharedFlags = struct {
+		Sign          bool
+		Full          bool
+		NoLegend      bool
+		NoBlock       bool
+		Replace       bool
+		BlockAttempts int
+		Fields        string
+		SSHPort       int
+	}{}
 )
+
+//RunStartUnit allow to start unit
+func RunStartUnit(args []string, cAPI *client.API) (exit int) {
+	if len(args) == 0 {
+		fmt.Println("No units given")
+		return 0
+	}
+
+	if err := lazyCreateUnits(args, cAPI); err != nil {
+		fmt.Printf("Error creating units: %v", err)
+		fmt.Println()
+		return 1
+	}
+
+	triggered, err := lazyStartUnits(args, cAPI)
+	if err != nil {
+		fmt.Printf("Error starting units: %v", err)
+		fmt.Println()
+		return 1
+	}
+
+	var starting []string
+	for _, u := range triggered {
+		if suToGlobal(*u) {
+			fmt.Printf("Triggered global unit %s start", u.Name)
+			fmt.Println()
+		} else {
+			starting = append(starting, u.Name)
+		}
+	}
+
+	if err := tryWaitForUnitStates(starting, "start", job.JobStateLaunched, getBlockAttempts(), os.Stdout, cAPI); err != nil {
+		fmt.Printf("Error waiting for unit states, exit status: %v", err)
+		fmt.Println()
+		return 1
+	}
+
+	if err := tryWaitForSystemdActiveState(starting, getBlockAttempts(), cAPI); err != nil {
+		fmt.Printf("Error waiting for systemd unit states, err: %v", err)
+		fmt.Println()
+		return 1
+	}
+
+	return 0
+}
+
+// RunDestroyUnit allow to destroy a unit
+func RunDestroyUnit(args []string, cAPI *client.API) (exit int) {
+	if len(args) == 0 {
+		fmt.Println("No units given")
+		return 0
+	}
+
+	units, err := findUnits(args, cAPI)
+	if err != nil {
+		fmt.Printf("%v", err)
+		fmt.Println()
+		return 1
+	}
+
+	if len(units) == 0 {
+		fmt.Println("Units not found in registry")
+		return 0
+	}
+
+	for _, v := range units {
+		err := (*cAPI).DestroyUnit(v.Name)
+		if err != nil {
+			// Ignore 'Unit does not exist' error
+			if client.IsErrorUnitNotFound(err) {
+				continue
+			}
+			fmt.Printf("Error destroying units: %v", err)
+			fmt.Println()
+			exit = 1
+			continue
+		}
+
+		if sharedFlags.NoBlock {
+			attempts := sharedFlags.BlockAttempts
+			retry := func() bool {
+				if sharedFlags.BlockAttempts < 1 {
+					return true
+				}
+				attempts--
+				if attempts == 0 {
+					return false
+				}
+				return true
+			}
+
+			for retry() {
+				u, err := (*cAPI).Unit(v.Name)
+				if err != nil {
+					fmt.Printf("Error destroying units: %v", err)
+					fmt.Println()
+					exit = 1
+					break
+				}
+
+				if u == nil {
+					break
+				}
+				time.Sleep(defaultSleepTime)
+			}
+		}
+
+		fmt.Printf("Destroyed %s", v.Name)
+		fmt.Println()
+	}
+	return
+}
+
+func findUnits(args []string, cAPI *client.API) (sus []schema.Unit, err error) {
+	units, err := (*cAPI).Units()
+	if err != nil {
+		return nil, err
+	}
+
+	uMap := make(map[string]*schema.Unit, len(units))
+	for _, u := range units {
+		u := u
+		uMap[u.Name] = u
+	}
+
+	filtered := make([]schema.Unit, 0)
+	for _, v := range args {
+		v = unitNameMangle(v)
+		u, ok := uMap[v]
+		if !ok {
+			continue
+		}
+		filtered = append(filtered, *u)
+	}
+
+	return filtered, nil
+}
 
 func unitNameMangle(arg string) string {
 	return maybeAppendDefaultUnitType(path.Base(arg))
@@ -284,51 +432,6 @@ func createUnit(name string, uf *unit.UnitFile, cAPI *client.API) (*schema.Unit,
 
 	log.Debugf("Created Unit(%s) in Registry", name)
 	return &u, nil
-}
-
-//RunStartUnit allow to start unit
-func RunStartUnit(args []string, cAPI *client.API) (exit int) {
-	if len(args) == 0 {
-		fmt.Println("No units given")
-		return 0
-	}
-
-	if err := lazyCreateUnits(args, cAPI); err != nil {
-		fmt.Printf("Error creating units: %v", err)
-		fmt.Println()
-		return 1
-	}
-
-	triggered, err := lazyStartUnits(args, cAPI)
-	if err != nil {
-		fmt.Printf("Error starting units: %v", err)
-		fmt.Println()
-		return 1
-	}
-
-	var starting []string
-	for _, u := range triggered {
-		if suToGlobal(*u) {
-			fmt.Printf("Triggered global unit %s start", u.Name)
-			fmt.Println()
-		} else {
-			starting = append(starting, u.Name)
-		}
-	}
-
-	if err := tryWaitForUnitStates(starting, "start", job.JobStateLaunched, getBlockAttempts(), os.Stdout, cAPI); err != nil {
-		fmt.Printf("Error waiting for unit states, exit status: %v", err)
-		fmt.Println()
-		return 1
-	}
-
-	if err := tryWaitForSystemdActiveState(starting, getBlockAttempts(), cAPI); err != nil {
-		fmt.Printf("Error waiting for systemd unit states, err: %v", err)
-		fmt.Println()
-		return 1
-	}
-
-	return 0
 }
 
 // tryWaitForSystemdActiveState tries to wait for systemd units to reach an
