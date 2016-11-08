@@ -23,13 +23,15 @@ var (
 	unit                = flag.String("unit", "", "Unit to start")
 	update              = flag.String("update", "", "Image to update to")
 	unitsDir            = flag.String("units-dir", ".", "Path to directory of fleet unit files")
+	fleetSSHServer      = flag.String("fleet-ssh-server", "", "A server to SSH for Fleet API")
+	fleetSSHUser        = flag.String("fleet-ssh-user", "core", "SSH username")
 )
 
 func main() {
 	transport := digest.NewTransport("admin", "admin.123")
 	flag.Parse()
 
-	if *update != "" && *serviceName != "" && *datacenterName != "" && *unitsDir != "" {
+	if *update != "" && *serviceName != "" && *datacenterName != "" && *unitsDir != "" && *fleetSSHServer != "" {
 		unitPath := fmt.Sprintf("%s/%s@.service", *unitsDir, *serviceName)
 		if _, err := os.Stat(unitPath); os.IsNotExist(err) {
 			log.Println(err)
@@ -83,9 +85,18 @@ func main() {
 			if currentConnections.CurrentConnections == 0 {
 				log.Println(cs.Cs.ServiceName, cs.Cs.Address, cs.Cs.Node, currentConnections.CurrentConnections, "connections")
 				// search fleet machine
-				unitList, _ := lib.ListFleetUnits()
+				unitList, _ := lib.ListFleetUnits(*fleetSSHUser, *fleetSSHServer)
 
-				machines, _ := lib.ListFleetMachines()
+				cAPI, err := lib.GetClient(*fleetSSHUser, *fleetSSHServer)
+				if err != nil {
+					fmt.Printf("Unable to initialize client: %v", err)
+					continue
+				}
+				machines, err := cAPI.Machines()
+				if err != nil {
+					log.Println("error while retrieving machines")
+					log.Println(err.Error())
+				}
 				for _, machine := range machines {
 					// select machine where service is running
 					if machine.PublicIP == cs.Cs.Address {
@@ -93,11 +104,6 @@ func main() {
 							unitFound, _ := regexp.MatchString(fmt.Sprintf("%s@.*.service", *serviceName), unit.Name)
 							if unit.MachineID == machine.ID && unitFound {
 								units := []string{unit.Name}
-								cAPI, err := lib.GetClient()
-								if err != nil {
-									fmt.Printf("Unable to initialize client: %v", err)
-									continue
-								}
 								lib.RunDestroyUnit(units, &cAPI)
 								log.Println("Destroyed unit", unit.Name, "on server", machine.PublicIP)
 								time.Sleep(3 * time.Second)
