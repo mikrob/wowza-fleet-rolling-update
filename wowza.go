@@ -22,13 +22,19 @@ var (
 	listActionOpts      = flag.Bool("list", false, "List services")
 	unit                = flag.String("unit", "", "Unit to start")
 	update              = flag.String("update", "", "Image to update to")
+	unitsDir            = flag.String("units-dir", ".", "Path to directory of fleet unit files")
 )
 
 func main() {
 	transport := digest.NewTransport("admin", "admin.123")
 	flag.Parse()
 
-	if *update != "" && *serviceName != "" && *datacenterName != "" {
+	if *update != "" && *serviceName != "" && *datacenterName != "" && *unitsDir != "" {
+		unitPath := fmt.Sprintf("%s/%s@.service", *unitsDir, *serviceName)
+		if _, err := os.Stat(unitPath); os.IsNotExist(err) {
+			log.Println(err)
+			os.Exit(1)
+		}
 		client, err := api.NewClient(api.DefaultConfig())
 		if err != nil {
 			panic(err)
@@ -38,11 +44,6 @@ func main() {
 			Datacenter: *datacenterName,
 		}
 
-		catalogServices, _, err := client.Catalog().Service(*serviceName, "", queryOpts)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
 		// loop start
 		// search for a service without this image name and tag it for future update (primarily includes already tagged service)
 		// wait until this service has no connections
@@ -56,15 +57,23 @@ func main() {
 
 		loopIndex := 1
 		for {
-			time.Sleep(1 * time.Second)
+			time.Sleep(3 * time.Second)
+			catalogServices, _, err := client.Catalog().Service(*serviceName, "", queryOpts)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
 			service, err := lib.SearchServiceWithoutTag(catalogServices, alreadyUpdatedTag)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
+				break
 			}
 			cs := lib.CatalogService{Dc: *datacenterName, Cs: &service}
+			log.Println("Found service")
 			err = cs.ServiceAddTag(client, &service, updateTag)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
+				continue
 			}
 			currentConnections, err := lib.GetMetrics(cs.GetURL(), transport)
 			if err != nil {
@@ -83,11 +92,20 @@ func main() {
 						for _, unit := range unitList {
 							unitFound, _ := regexp.MatchString(fmt.Sprintf("%s@.*.service", *serviceName), unit.Name)
 							if unit.MachineID == machine.ID && unitFound {
-								//units := []string{unit.Name}
-								//cAPI, err := lib.GetClient()
-								//}
-								//lib.RunDestroyUnit(units, &cAPI)
+								units := []string{unit.Name}
+								cAPI, err := lib.GetClient()
+								if err != nil {
+									fmt.Printf("Unable to initialize client: %v", err)
+									continue
+								}
+								lib.RunDestroyUnit(units, &cAPI)
 								log.Println("Destroyed unit", unit.Name, "on server", machine.PublicIP)
+								time.Sleep(3 * time.Second)
+								unitFile := fmt.Sprintf("%s/%s", *unitsDir, unit.Name)
+								units = []string{unitFile}
+								lib.RunStartUnit(units, &cAPI)
+								log.Println("Start unit", unit.Name, "with file")
+								time.Sleep(30 * time.Second)
 							}
 						}
 						// cAPI, err := lib.GetClient()
