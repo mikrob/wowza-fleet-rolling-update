@@ -16,16 +16,17 @@ type Metrics struct {
 // GetMetrics allow to retrive wowza metrics with mock or really
 func GetMetrics(url string, transport *digest.Transport) (Metrics, error) {
 
+	var metrics Metrics
 	// initialize the client
 	client, err := transport.Client()
 	if err != nil {
-		fmt.Println(err.Error())
+		return metrics, err
 	}
 
 	// make the call (auth will happen)
 	resp, err := client.Get(url)
 	if err != nil {
-		fmt.Println(err.Error())
+		return metrics, err
 	}
 	defer resp.Body.Close()
 
@@ -33,7 +34,6 @@ func GetMetrics(url string, transport *digest.Transport) (Metrics, error) {
 	// body, err := ioutil.ReadAll(resp.Body)
 	// fmt.Printf("Body: %v\n", string(body))
 
-	var metrics Metrics
 	err = json.NewDecoder(resp.Body).Decode(&metrics)
 	if err != nil {
 		fmt.Println("Cannot parse JSON from WOWZA because : ")

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"time"
 	"wowza-rolling-update/digest"
 	"wowza-rolling-update/lib"
@@ -55,6 +56,7 @@ func main() {
 
 		loopIndex := 1
 		for {
+			time.Sleep(1 * time.Second)
 			service, err := lib.SearchServiceWithoutTag(catalogServices, alreadyUpdatedTag)
 			if err != nil {
 				fmt.Println(err)
@@ -64,15 +66,41 @@ func main() {
 			if err != nil {
 				fmt.Println(err)
 			}
-			currentConnections, _ := lib.GetMetrics(cs.GetURL(), transport)
+			currentConnections, err := lib.GetMetrics(cs.GetURL(), transport)
+			if err != nil {
+				log.Println("Unable to retrieve wowza metrics for service", cs.Cs.ServiceName, cs.Cs.ServiceAddress, cs.GetURL())
+				continue
+			}
 			if currentConnections.CurrentConnections == 0 {
 				log.Println(cs.Cs.ServiceName, cs.Cs.Address, cs.Cs.Node, currentConnections.CurrentConnections, "connections")
 				// search fleet machine
+				unitList, _ := lib.ListFleetUnits()
+
 				machines, _ := lib.ListFleetMachines()
 				for _, machine := range machines {
+					// select machine where service is running
 					if machine.PublicIP == cs.Cs.Address {
-						lib.RunDestroyUnit(units, &cAPI)
-						lib.RunStartUnit()
+						for _, unit := range unitList {
+							unitFound, _ := regexp.MatchString(fmt.Sprintf("%s@.*.service", *serviceName), unit.Name)
+							if unit.MachineID == machine.ID && unitFound {
+								//units := []string{unit.Name}
+								//cAPI, err := lib.GetClient()
+								//}
+								//lib.RunDestroyUnit(units, &cAPI)
+								log.Println("Destroyed unit", unit.Name, "on server", machine.PublicIP)
+							}
+						}
+						// cAPI, err := lib.GetClient()
+						// if err != nil {
+						// 	fmt.Printf("Unable to initialize client: %v", err)
+						// 	os.Exit(1)
+						// }
+
+						// search unit
+						//	units := []string{*serviceName}
+
+						//lib.RunDestroyUnit(units, &cAPI)
+						// lib.RunStartUnit()
 					}
 				}
 				// units, _ := lib.ListFleetUnits()
@@ -81,7 +109,6 @@ func main() {
 				// }
 			}
 			loopIndex += loopIndex
-			time.Sleep(1 * time.Second)
 		}
 
 	}
@@ -141,18 +168,18 @@ func main() {
 	// } else {
 	// 	flag.Usage()
 	// }
-	machineList, _ := lib.ListFleetMachines()
-	lib.PrintMachineList(machineList)
-
-	unitList, _ := lib.ListFleetUnits()
-	lib.PrintUnitList(unitList)
-
-	cAPI, err := lib.GetClient()
-	if err != nil {
-		fmt.Printf("Unable to initialize client: %v", err)
-		os.Exit(1)
-	}
-	units := []string{*unit}
-	//lib.RunStartUnit(units, &cAPI)
-	lib.RunDestroyUnit(units, &cAPI)
+	// machineList, _ := lib.ListFleetMachines()
+	// lib.PrintMachineList(machineList)
+	//
+	// unitList, _ := lib.ListFleetUnits()
+	// lib.PrintUnitList(unitList)
+	//
+	// cAPI, err := lib.GetClient()
+	// if err != nil {
+	// 	fmt.Printf("Unable to initialize client: %v", err)
+	// 	os.Exit(1)
+	// }
+	// units := []string{*unit}
+	// //lib.RunStartUnit(units, &cAPI)
+	// lib.RunDestroyUnit(units, &cAPI)
 }
