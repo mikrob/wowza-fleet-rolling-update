@@ -114,23 +114,8 @@ func main() {
 								time.Sleep(30 * time.Second)
 							}
 						}
-						// cAPI, err := lib.GetClient()
-						// if err != nil {
-						// 	fmt.Printf("Unable to initialize client: %v", err)
-						// 	os.Exit(1)
-						// }
-
-						// search unit
-						//	units := []string{*serviceName}
-
-						//lib.RunDestroyUnit(units, &cAPI)
-						// lib.RunStartUnit()
 					}
 				}
-				// units, _ := lib.ListFleetUnits()
-				// for _, unit := range units {
-				// 	if unit.
-				// }
 			}
 			loopIndex += loopIndex
 		}
