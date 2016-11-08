@@ -65,25 +65,44 @@ func main() {
 				fmt.Println(err)
 				break
 			}
-			service, err := lib.SearchServiceWithoutTag(catalogServices, alreadyUpdatedTag)
+			// search if we already have a service already waiting for an update
+			service, err := lib.SearchServiceWithTag(catalogServices, updateTag)
 			if err != nil {
-				log.Println(err)
-				break
+				service, err = lib.SearchServiceWithoutTag(catalogServices, alreadyUpdatedTag)
+				if err != nil {
+					log.Println(err)
+					break
+				}
 			}
 			cs := lib.CatalogService{Dc: *datacenterName, Cs: &service}
-			log.Println("Found service")
-			err = cs.ServiceAddTag(client, &service, updateTag)
-			if err != nil {
-				log.Println(err)
-				continue
+			if !cs.HasTag(updateTag) {
+				err = cs.ServiceAddTag(client, &service, updateTag)
+				if err != nil {
+					log.Println(err)
+					break
+				}
 			}
-			currentConnections, err := lib.GetMetrics(cs.GetURL(), transport)
+			log.Println("Found service")
+
+			for {
+				currentConnections, errs := lib.GetMetrics(cs.GetURL(), transport)
+				if errs != nil {
+					log.Println("Unable to retrieve wowza metrics for service", cs.Cs.ServiceName, cs.Cs.ServiceAddress, cs.GetURL())
+					continue
+				}
+				log.Println(currentConnections.CurrentConnections, "connections left in", cs.Cs.ServiceName, cs.Cs.ServiceAddress)
+				if currentConnections.CurrentConnections == 0 {
+					break
+				}
+				time.Sleep(3 * time.Second)
+			}
+			currentConnectionsRenew, err := lib.GetMetrics(cs.GetURL(), transport)
 			if err != nil {
 				log.Println("Unable to retrieve wowza metrics for service", cs.Cs.ServiceName, cs.Cs.ServiceAddress, cs.GetURL())
 				continue
 			}
-			if currentConnections.CurrentConnections == 0 {
-				log.Println(cs.Cs.ServiceName, cs.Cs.Address, cs.Cs.Node, currentConnections.CurrentConnections, "connections")
+			if currentConnectionsRenew.CurrentConnections == 0 {
+				log.Println(cs.Cs.ServiceName, cs.Cs.Address, cs.Cs.Node, currentConnectionsRenew.CurrentConnections, "connections")
 				// search fleet machine
 				unitList, _ := lib.ListFleetUnits(*fleetSSHUser, *fleetSSHServer)
 

@@ -26,10 +26,10 @@ func (t Tag) BuildTag() (string, error) {
 		err = errors.New("Should not build tag with empty key or value")
 		fmt.Println("Error while building tag :", err.Error())
 	}
-        if err != nil {
-	  return "", err
+	if err != nil {
+		return "", err
 	} else {
-	  return fmt.Sprintf("%s=%s", t.Key, t.Value), err
+		return fmt.Sprintf("%s=%s", t.Key, t.Value), err
 	}
 }
 
@@ -129,4 +129,16 @@ func SearchServiceWithoutTag(c []*api.CatalogService, unexpectedTag Tag) (api.Ca
 		}
 	}
 	return ret, fmt.Errorf("Cannot found instance without tag %s", unexpectedTag)
+}
+
+//SearchServiceWithTag allow to search a service with a given tag, return the first that do have this tag
+func SearchServiceWithTag(c []*api.CatalogService, expectedTag Tag) (api.CatalogService, error) {
+	var ret api.CatalogService
+	for _, s := range c {
+		cs := CatalogService{Cs: s}
+		if cs.HasTag(expectedTag) {
+			return *s, nil
+		}
+	}
+	return ret, fmt.Errorf("Cannot found instance with tag %s", expectedTag)
 }
