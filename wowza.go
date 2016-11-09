@@ -31,7 +31,34 @@ func main() {
 	transport := digest.NewTransport("admin", "admin.123")
 	flag.Parse()
 
-	if *update != "" && *serviceName != "" && *datacenterName != "" && *unitsDir != "" && *fleetSSHServer != "" {
+	if *listActionOpts {
+		client, err := api.NewClient(api.DefaultConfig())
+		if err != nil {
+			panic(err)
+		}
+
+		queryOpts := &api.QueryOptions{
+			Datacenter: *datacenterName,
+		}
+
+		catalogServices, _, err := client.Catalog().Service(*serviceName, "", queryOpts)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		for _, s := range catalogServices {
+			cs := lib.CatalogService{Dc: *datacenterName, Cs: s}
+			currentConnections, _ := lib.GetMetrics(cs.GetURL(), transport)
+			fmt.Printf("[%s] node:%s lan:%s wan:%s tags:%s current_connections:%d\n",
+				s.ServiceName,
+				s.Node,
+				s.TaggedAddresses["lan"],
+				s.TaggedAddresses["wan"],
+				s.ServiceTags,
+				currentConnections.CurrentConnections,
+			)
+		}
+	} else if *update != "" && *serviceName != "" && *datacenterName != "" && *unitsDir != "" && *fleetSSHServer != "" {
 		unitPath := fmt.Sprintf("%s/%s@.service", *unitsDir, *serviceName)
 		if _, err := os.Stat(unitPath); os.IsNotExist(err) {
 			log.Println(err)
@@ -139,6 +166,8 @@ func main() {
 			loopIndex += loopIndex
 		}
 
+	} else {
+		flag.Usage()
 	}
 	os.Exit(0)
 	// var tag lib.Tag
