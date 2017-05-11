@@ -1,5 +1,8 @@
 # wowza-rolling-update
 
+
+This project is a good example of rooling-update containers deployed with fleet, using consul as service discovery and key value store.
+
 [![Build Status](https://jenkins.botsunit.com/jenkins/buildStatus/icon?job=wowza_rolling_update_test)](https://jenkins.botsunit.com/jenkins/job/wowza_rolling_update_test/)
 
 `wowza-rolling-update` upgrades Wowza origin and edge containers with a rolling update process. Containers are destroyed and recreated with new unit file when no connections are found in Wowza container.
